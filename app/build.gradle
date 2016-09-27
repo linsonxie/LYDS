@@ -1,0 +1,79 @@
+apply plugin: 'com.android.application'
+
+def cfg = rootProject.ext.configuration
+
+android {
+    int compileSdk = cfg.compileSdk
+    compileSdkVersion compileSdk
+    buildToolsVersion cfg.buildTools
+
+    //region 这段代码用于自动控制版本号
+    // 执行 General Signed APK，选择 Build Type 为 release 时，版本号不会增加
+    // 其他跟 build 相关的操作都会增加版本号
+    def versionPropsFile = file('version.properties')
+    if (versionPropsFile.canRead()) {
+        Properties versionProps = new Properties()
+        versionProps.load(new FileInputStream(versionPropsFile))
+        String runTasks = gradle.startParameter.taskNames
+        boolean isRelease = runTasks.contains("assemble") && runTasks.contains('Release')
+        int verCode = versionProps['VERSION_CODE'] as int
+        if (!isRelease) {
+            // 只在非 release 操作时增加版本号
+            verCode++
+            versionProps['VERSION_CODE'] = verCode.toString()
+            versionProps.store(versionPropsFile.newWriter(), null)
+        }
+        String verName = versionProps['VERSION_NAME']
+        String appId = cfg.appId
+        int minSdk = cfg.minSdk
+        defaultConfig {
+            applicationId appId
+            minSdkVersion minSdk
+            targetSdkVersion compileSdk
+            versionCode verCode
+            versionName verName
+            jackOptions { enabled true }
+            testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+        }
+    } else {
+        throw new GradleException('Could not read version.properties!')
+    }
+    //endregion
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}
+
+def libs = rootProject.ext.libraries
+
+dependencies {
+    compile fileTree(include: ['*.jar'], dir: 'libs')
+    compile "com.android.support:appcompat-v7:${libs.appcompat_v7}"
+    compile "com.jakewharton:butterknife:${libs.butterknife}"
+    annotationProcessor 'com.jakewharton:butterknife-compiler:8.4.0'
+    compile "com.github.bumptech.glide:glide:${libs.glide}"
+    compile "com.google.code.gson:gson:${libs.gson}"
+    compile "com.orhanobut:logger:${libs.logger}"
+    compile "com.jonathanfinerty.once:once:${libs.once}"
+    compile "com.android.support:recyclerview-v7:${libs.recyclerview}"
+    compile "com.squareup.retrofit2:retrofit:${libs.retrofit}"
+    compile "com.squareup.retrofit2:adapter-rxjava:${libs.retrofit}"
+    compile "com.squareup.retrofit2:converter-gson:${libs.retrofit}"
+    compile "io.reactivex:rxandroid:${libs.rxandroid}"
+    compile "com.android.support:support-v4:${libs.support_v4}"
+
+    testCompile 'junit:junit:4.12'
+
+    androidTestCompile('com.android.support.test.espresso:espresso-core:2.2.2', {
+        exclude group: 'com.android.support', module: 'support-annotations'
+    })
+}
